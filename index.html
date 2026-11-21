@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>The Broke Trap - Stickman Animation</title>
+  <title>The Broke Trap - Cinematic Stickman Film</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -11,19 +11,19 @@
       color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      width: 100vw;
+      height: 100vh;
       overflow: hidden;
     }
     #stage-wrap {
       position: relative;
       width: 100vw;
-      max-width: 1280px;
-      aspect-ratio: 16 / 9;
+      height: 100vh;
+      max-width: 177.78vh;
+      max-height: 56.25vw;
       background: #0e0e12;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.85);
       overflow: hidden;
     }
     canvas {
@@ -33,29 +33,29 @@
     }
     #controls {
       position: fixed;
-      bottom: 14px;
+      bottom: 10px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: center;
-      background: rgba(20, 20, 26, 0.9);
-      border: 1px solid rgba(255,255,255,0.12);
-      padding: 8px 14px;
+      background: rgba(16, 16, 22, 0.88);
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 6px 12px;
       border-radius: 999px;
       z-index: 20;
       backdrop-filter: blur(8px);
-      transition: opacity 0.3s;
+      transition: opacity 0.25s;
     }
     #controls.hidden { opacity: 0; pointer-events: none; }
     button {
       background: #ffffff;
       color: #0e0e12;
       border: none;
-      padding: 6px 14px;
+      padding: 5px 12px;
       border-radius: 999px;
       font-weight: 700;
-      font-size: 13px;
+      font-size: 12px;
       cursor: pointer;
     }
     button.secondary {
@@ -63,10 +63,10 @@
       color: #ffffff;
     }
     #timer {
-      font-size: 12px;
+      font-size: 11px;
       font-variant-numeric: tabular-nums;
-      color: #aaa;
-      min-width: 78px;
+      color: #bbb;
+      min-width: 68px;
       text-align: center;
     }
   </style>
@@ -79,7 +79,7 @@
   <div id="controls">
     <button id="playBtn">Pause</button>
     <button id="restartBtn" class="secondary">Restart</button>
-    <button id="cleanBtn" class="secondary">Clean Record Mode</button>
+    <button id="cleanBtn" class="secondary">Clean Record</button>
     <span id="timer">0:00 / 1:40</span>
   </div>
 
@@ -88,14 +88,13 @@ const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
 const W = 1280, H = 720;
 
-// Timeline scenes (100 seconds total paced animation; scale durations to match your 8-min voiceover!)
 const SCENES = [
-  { id: 'hook1', start: 0,  end: 10, caption: "It’s Friday. You just got paid. For one second, you can finally breathe." },
-  { id: 'hook2', start: 10, end: 22, caption: "Then rent, power, groceries, and past-due bills hit before Monday morning." },
-  { id: 'study', start: 22, end: 38, caption: "Harvard & Princeton proved financial stress drops functional IQ by 13 points." },
-  { id: 'tunnel',start: 38, end: 56, caption: "Scarcity triggers Tunnel Vision—your brain locks onto survival and misses long-term doors." },
-  { id: 'boots', start: 56, end: 78, caption: "The Poverty Tax: $30 boots every 6 months cost $300. One $120 pair lasts 5 years." },
-  { id: 'escape',start: 78, end: 100,caption: "Escaping starts by automating small decisions—freeing mental bandwidth to climb out." }
+  { start: 0,  end: 10, caption: "It’s Friday night. Payday finally hits—and for one brief moment, you can breathe." },
+  { start: 10, end: 22, caption: "Before Monday morning, rent, power, groceries, and fees wipe the entire account out." },
+  { start: 22, end: 38, caption: "Harvard & Princeton found financial stress drops functional IQ by 13 full points." },
+  { start: 38, end: 56, caption: "Your brain enters Tunnel Vision—locking onto survival and blinding you to long-term exits." },
+  { start: 56, end: 78, caption: "The Poverty Tax: cheap $30 boots replaced 10 times cost $300. One $120 pair lasts 5 years." },
+  { start: 78, end: 100,caption: "To escape the pit, automate small survival choices first—and reclaim your mental bandwidth." }
 ];
 const TOTAL_DURATION = 100;
 
@@ -103,368 +102,511 @@ let elapsed = 0;
 let playing = true;
 let lastTs = null;
 
-// Easing helpers
 const clamp = (v, min = 0, max = 1) => Math.max(min, Math.min(max, v));
+const lerp = (a, b, t) => a + (b - a) * clamp(t);
 const easeOutCubic = t => 1 - Math.pow(1 - clamp(t), 3);
-const easeOutBack = t => {
-  t = clamp(t);
-  const c1 = 1.70158, c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-};
+const easeInOutSine = t => -(Math.cos(Math.PI * clamp(t)) - 1) / 2;
 
-// Draw glowing tavieenfilm-style chunky white stickman
-function drawStickman(x, y, scale = 1, opts = {}) {
+// Atmospheric dust particles (signature tavieenfilm depth)
+const particles = Array.from({ length: 38 }, (_, i) => ({
+  x: (i * 197) % W,
+  y: (i * 131) % H,
+  r: 1 + (i % 3) * 0.8,
+  speedY: -8 - (i % 5) * 3,
+  alpha: 0.08 + (i % 4) * 0.05
+}));
+
+function drawDust(t) {
+  ctx.save();
+  for (const p of particles) {
+    const py = ((p.y + t * p.speedY) % H + H) % H;
+    const px = p.x + Math.sin(t * 0.8 + p.y) * 14;
+    ctx.fillStyle = `rgba(255,255,255,${p.alpha})`;
+    ctx.beginPath();
+    ctx.arc(px, py, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Drawn dark-mode apartment room environment
+function drawRoomEnvironment(t, options = {}) {
+  const { windowGlow = 'rgba(130, 170, 255, 0.14)', redAlert = 0, dayLabel = 'FRI' } = options;
+
+  // Wall gradient
+  const wall = ctx.createLinearGradient(0, 0, 0, 560);
+  wall.addColorStop(0, '#16161d');
+  wall.addColorStop(1, '#101015');
+  ctx.fillStyle = wall;
+  ctx.fillRect(0, 0, W, 560);
+
+  // Dark hardwood floor with perspective planks
+  ctx.fillStyle = '#0a0a0e';
+  ctx.fillRect(0, 560, W, 160);
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 560); ctx.lineTo(W, 560);
+  ctx.stroke();
+
+  // Apartment Window (Left-back)
+  ctx.save();
+  ctx.fillStyle = '#090b10';
+  ctx.strokeStyle = '#262632';
+  ctx.lineWidth = 6;
+  ctx.fillRect(130, 120, 210, 250);
+  ctx.strokeRect(130, 120, 210, 250);
+
+  // Moonlight / city glow through window
+  const wGrad = ctx.createRadialGradient(235, 220, 10, 235, 245, 260);
+  wGrad.addColorStop(0, windowGlow);
+  wGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = wGrad;
+  ctx.fillRect(90, 90, 420, 450);
+
+  // Window panes
+  ctx.strokeStyle = '#22222c';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(235, 120); ctx.lineTo(235, 370);
+  ctx.moveTo(130, 245); ctx.lineTo(340, 245);
+  ctx.stroke();
+  ctx.restore();
+
+  // Wall Calendar (Right-back)
+  ctx.save();
+  ctx.fillStyle = '#1b1b24';
+  ctx.strokeStyle = redAlert > 0.5 ? '#ff4d4d' : '#323240';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(960, 145, 115, 125, 10);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = redAlert > 0.5 ? '#ff4d4d' : '#3b82f6';
+  ctx.fillRect(960, 145, 115, 30);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('PAY CYCLE', 1017, 165);
+  ctx.font = '900 34px sans-serif';
+  ctx.fillText(dayLabel, 1017, 226);
+  ctx.restore();
+
+  // Desk on the right side
+  ctx.save();
+  ctx.fillStyle = '#181820';
+  ctx.strokeStyle = '#2c2c38';
+  ctx.lineWidth = 3;
+  ctx.fillRect(740, 430, 320, 18);
+  ctx.strokeRect(740, 430, 320, 18);
+  // Desk legs
+  ctx.fillRect(765, 448, 14, 112);
+  ctx.fillRect(1020, 448, 14, 112);
+
+  // Desk lamp casting soft cone of light
+  ctx.strokeStyle = '#4a4a5a';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(1005, 430); ctx.lineTo(1015, 355); ctx.lineTo(975, 335);
+  ctx.stroke();
+  const lampLight = ctx.createRadialGradient(965, 345, 5, 930, 410, 180);
+  lampLight.addColorStop(0, 'rgba(255, 240, 200, 0.16)');
+  lampLight.addColorStop(1, 'rgba(255, 240, 200, 0)');
+  ctx.fillStyle = lampLight;
+  ctx.beginPath();
+  ctx.moveTo(975, 335); ctx.lineTo(810, 430); ctx.lineTo(1050, 430);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Red stress vignette pulse
+  if (redAlert > 0) {
+    const pulse = (0.5 + 0.5 * Math.sin(t * 5)) * redAlert * 0.25;
+    const rVig = ctx.createRadialGradient(W/2, H/2, 260, W/2, H/2, 740);
+    rVig.addColorStop(0, 'rgba(255,0,0,0)');
+    rVig.addColorStop(1, `rgba(255, 40, 40, ${pulse})`);
+    ctx.fillStyle = rVig;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+// Expressive, full-body animated stickman with breathing, blinking, walking, and hand gestures
+function drawCharacter(x, y, scale = 1, t = 0, opts = {}) {
   const {
-    mood = 'neutral', // neutral | happy | stressed | worried | tired | triumphant
-    armRaise = 0,     // 0 to 1
-    slump = 0,        // 0 to 1
-    glowColor = 'rgba(255,255,255,0.65)',
+    mood = 'neutral',     // neutral | happy | stressed | worried | tired | triumphant
+    pose = 'idle',        // idle | walk | handsOnHead | reachUp | pointRight
+    facing = 1,           // 1 = right, -1 = left
+    glowColor = 'rgba(255,255,255,0.6)',
     bodyColor = '#ffffff'
   } = opts;
 
+  const breath = Math.sin(t * 2.6) * 3;
+  const blink = (t % 3.8) > 3.65;
+  const walkCycle = pose === 'walk' ? Math.sin(t * 7) : 0;
+  const slump = (mood === 'stressed' || mood === 'tired') ? 10 : 0;
+
   ctx.save();
-  ctx.translate(x, y + slump * 14 * scale);
-  ctx.scale(scale, scale);
+  ctx.translate(x, y);
+  ctx.scale(scale * facing, scale);
+
+  // Ground contact shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(0, 128, 34, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.shadowColor = glowColor;
-  ctx.shadowBlur = 22;
+  ctx.shadowBlur = 20;
   ctx.strokeStyle = bodyColor;
   ctx.fillStyle = bodyColor;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Torso
-  ctx.lineWidth = 18;
+  // Torso (curves slightly when stressed)
+  ctx.lineWidth = 17;
   ctx.beginPath();
-  ctx.moveTo(0, -45);
-  ctx.quadraticCurveTo(slump * 12, 5, 0, 50);
+  ctx.moveTo(0, -42 + breath + slump);
+  ctx.quadraticCurveTo(slump * 0.8, 8, 0, 50);
   ctx.stroke();
 
-  // Legs
-  ctx.lineWidth = 16;
-  ctx.beginPath();
-  ctx.moveTo(0, 50);
-  ctx.lineTo(-26, 125);
-  ctx.moveTo(0, 50);
-  ctx.lineTo(26, 125);
-  ctx.stroke();
-
-  // Arms
+  // Legs (animated walk stride or grounded stance)
   ctx.lineWidth = 15;
-  const leftHandY = -10 - armRaise * 75 + slump * 25;
-  const rightHandY = -10 - armRaise * 75 + slump * 25;
   ctx.beginPath();
-  ctx.moveTo(0, -32);
-  ctx.quadraticCurveTo(-36, -25 - armRaise * 35, -46, leftHandY);
-  ctx.moveTo(0, -32);
-  ctx.quadraticCurveTo(36, -25 - armRaise * 35, 46, rightHandY);
+  ctx.moveTo(0, 50);
+  ctx.lineTo(-22 + walkCycle * 26, 125 - Math.max(0, walkCycle) * 8);
+  ctx.moveTo(0, 50);
+  ctx.lineTo(22 - walkCycle * 26, 125 - Math.max(0, -walkCycle) * 8);
+  ctx.stroke();
+
+  // Arms based on pose
+  ctx.lineWidth = 14;
+  const shoulderY = -30 + breath + slump;
+  ctx.beginPath();
+  if (pose === 'handsOnHead') {
+    const headY = -84 + breath + slump;
+    ctx.moveTo(0, shoulderY);
+    ctx.quadraticCurveTo(-48, shoulderY - 25, -28, headY - 8);
+    ctx.moveTo(0, shoulderY);
+    ctx.quadraticCurveTo(48, shoulderY - 25, 28, headY - 8);
+  } else if (pose === 'reachUp') {
+    const wave = Math.sin(t * 4) * 6;
+    ctx.moveTo(0, shoulderY);
+    ctx.quadraticCurveTo(-36, shoulderY - 45, -32, shoulderY - 92 + wave);
+    ctx.moveTo(0, shoulderY);
+    ctx.quadraticCurveTo(36, shoulderY - 45, 32, shoulderY - 92 - wave);
+  } else if (pose === 'pointRight') {
+    ctx.moveTo(0, shoulderY);
+    ctx.lineTo(-26, shoulderY + 52);
+    ctx.moveTo(0, shoulderY);
+    ctx.lineTo(62, shoulderY - 8);
+  } else {
+    // Natural idle or walk arm swing
+    ctx.moveTo(0, shoulderY);
+    ctx.quadraticCurveTo(-30, shoulderY + 26, -34 - walkCycle * 18, shoulderY + 58);
+    ctx.moveTo(0, shoulderY);
+    ctx.quadraticCurveTo(30, shoulderY + 26, 34 + walkCycle * 18, shoulderY + 58);
+  }
   ctx.stroke();
 
   // Head
-  const headX = slump * 10;
-  const headY = -88 + slump * 10;
+  const headX = slump * 0.7;
+  const headY = -84 + breath + slump;
   ctx.beginPath();
-  ctx.arc(headX, headY, 36, 0, Math.PI * 2);
+  ctx.arc(headX, headY, 34, 0, Math.PI * 2);
   ctx.fill();
 
-  // Facial features (dark ink on glowing white head)
+  // Face details (facing slightly toward direction of travel/gaze)
   ctx.shadowBlur = 0;
-  ctx.strokeStyle = '#111116';
   ctx.fillStyle = '#111116';
-  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = '#111116';
+  ctx.lineWidth = 3.2;
 
-  // Eyes
-  ctx.beginPath();
-  ctx.arc(headX - 12, headY - 4, 4.2, 0, Math.PI * 2);
-  ctx.arc(headX + 12, headY - 4, 4.2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Eyebrows & Mouth
-  if (mood === 'happy' || mood === 'triumphant') {
+  const eyeOffsetX = 6;
+  if (blink) {
     ctx.beginPath();
-    ctx.arc(headX, headY + 6, 12, 0.15 * Math.PI, 0.85 * Math.PI);
-    ctx.stroke();
-  } else if (mood === 'stressed' || mood === 'worried') {
-    // Worried eyebrows
-    ctx.beginPath();
-    ctx.moveTo(headX - 20, headY - 12); ctx.lineTo(headX - 6, headY - 17);
-    ctx.moveTo(headX + 20, headY - 12); ctx.lineTo(headX + 6, headY - 17);
-    ctx.stroke();
-    // Frown
-    ctx.beginPath();
-    ctx.arc(headX, headY + 18, 11, 1.15 * Math.PI, 1.85 * Math.PI);
+    ctx.moveTo(headX + eyeOffsetX - 15, headY - 3); ctx.lineTo(headX + eyeOffsetX - 7, headY - 3);
+    ctx.moveTo(headX + eyeOffsetX + 7, headY - 3);  ctx.lineTo(headX + eyeOffsetX + 15, headY - 3);
     ctx.stroke();
   } else {
     ctx.beginPath();
-    ctx.moveTo(headX - 10, headY + 12);
-    ctx.lineTo(headX + 10, headY + 12);
+    ctx.arc(headX + eyeOffsetX - 11, headY - 4, 4, 0, Math.PI * 2);
+    ctx.arc(headX + eyeOffsetX + 11, headY - 4, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (mood === 'happy' || mood === 'triumphant') {
+    ctx.beginPath();
+    ctx.arc(headX + eyeOffsetX, headY + 6, 11, 0.12 * Math.PI, 0.88 * Math.PI);
+    ctx.stroke();
+  } else if (mood === 'stressed' || mood === 'worried') {
+    ctx.beginPath();
+    ctx.moveTo(headX + eyeOffsetX - 18, headY - 11); ctx.lineTo(headX + eyeOffsetX - 6, headY - 16);
+    ctx.moveTo(headX + eyeOffsetX + 18, headY - 11); ctx.lineTo(headX + eyeOffsetX + 6, headY - 16);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(headX + eyeOffsetX, headY + 17, 10, 1.15 * Math.PI, 1.85 * Math.PI);
+    ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(headX + eyeOffsetX - 8, headY + 11);
+    ctx.lineTo(headX + eyeOffsetX + 8, headY + 11);
     ctx.stroke();
   }
 
   ctx.restore();
 }
 
-function drawGlowText(text, x, y, size = 56, color = '#ffffff', align = 'center', glow = 'rgba(255,255,255,0.4)') {
+// Illustrated falling paper bill / envelope (instead of generic UI cards)
+function drawFlyingEnvelope(x, y, angle, title, amount, progress) {
+  if (progress <= 0) return;
+  const p = easeOutCubic(progress);
+  const curY = lerp(y - 260, y, p);
+  const curRot = lerp(angle - 0.45, angle, p);
+
+  ctx.save();
+  ctx.translate(x, curY);
+  ctx.rotate(curRot);
+  ctx.globalAlpha = clamp(progress * 2);
+
+  ctx.shadowColor = 'rgba(255, 60, 60, 0.45)';
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = '#1d1418';
+  ctx.strokeStyle = '#ff4d4d';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.roundRect(-86, -34, 172, 68, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Envelope flap lines
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255, 77, 77, 0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-84, -32); ctx.lineTo(0, 2); ctx.lineTo(84, -32);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ff8080';
+  ctx.font = '800 13px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(title, 0, -10);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '900 22px sans-serif';
+  ctx.fillText(amount, 0, 20);
+  ctx.restore();
+}
+
+function drawTitle(text, x, y, size = 48, color = '#ffffff', glow = 'rgba(255,255,255,0.35)') {
   ctx.save();
   ctx.font = `900 ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-  ctx.textAlign = align;
+  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.shadowColor = glow;
-  ctx.shadowBlur = 24;
+  ctx.shadowBlur = 22;
   ctx.fillStyle = color;
   ctx.fillText(text, x, y);
   ctx.restore();
 }
 
-function drawBillCard(x, y, label, amount, progress) {
-  const s = easeOutBack(progress);
-  if (s <= 0.01) return;
+function drawSubtitle(text) {
   ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(s, s);
-  ctx.shadowColor = 'rgba(255, 59, 59, 0.55)';
-  ctx.shadowBlur = 24;
-  ctx.fillStyle = '#1b1114';
-  ctx.strokeStyle = '#ff3b3b';
-  ctx.lineWidth = 3;
+  ctx.fillStyle = 'rgba(6, 6, 10, 0.78)';
   ctx.beginPath();
-  ctx.roundRect(-115, -42, 230, 84, 14);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#ff6b6b';
-  ctx.font = '700 16px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(label, 0, -10);
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '900 28px sans-serif';
-  ctx.fillText(amount, 0, 22);
-  ctx.restore();
-}
-
-function drawCaption(text) {
-  ctx.save();
-  ctx.fillStyle = 'rgba(8, 8, 12, 0.78)';
-  ctx.beginPath();
-  ctx.roundRect(140, H - 86, W - 280, 54, 12);
+  ctx.roundRect(160, H - 68, W - 320, 44, 10);
   ctx.fill();
 
-  ctx.fillStyle = '#f3f4f6';
-  ctx.font = '600 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillStyle = '#f1f5f9';
+  ctx.font = '600 19px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, W / 2, H - 59);
+  ctx.fillText(text, W / 2, H - 46);
   ctx.restore();
 }
 
 function render(t) {
-  // Background radial vignette
-  const bg = ctx.createRadialGradient(W/2, H/2, 80, W/2, H/2, 760);
-  bg.addColorStop(0, '#181820');
-  bg.addColorStop(1, '#09090c');
-  ctx.fillStyle = bg;
+  ctx.fillStyle = '#0e0e12';
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle grid floor
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, 545);
-  ctx.lineTo(W, 545);
-  ctx.stroke();
-
-  // SCENE 1: PAYDAY FRIDAY (0 - 10s)
+  // SCENE 1: PAYDAY FRIDAY IN APARTMENT (0 - 10s)
   if (t < 10) {
-    const p = easeOutCubic(t / 1.5);
-    drawGlowText('PAYDAY FRIDAY', W / 2, 110, 64, '#ffffff');
-    drawGlowText('+$1,400.00', W / 2, 185, 42, '#4ade80', 'center', 'rgba(74,222,128,0.45)');
-    drawStickman(W / 2, 415, 1.15, {
-      mood: 'happy',
-      armRaise: Math.sin(t * 3) * 0.15 + 0.35 * p
-    });
-  }
-
-  // SCENE 2: BILLS HIT BEFORE MONDAY (10 - 22s)
-  else if (t < 22) {
-    const lt = t - 10;
-    const isMonday = lt > 7;
-    drawGlowText(
-      isMonday ? 'MONDAY MORNING: $0.00' : '48 HOURS LATER...',
-      W / 2, 95, 54,
-      isMonday ? '#ff4d4d' : '#ffffff',
-      'center',
-      isMonday ? 'rgba(255,77,77,0.5)' : 'rgba(255,255,255,0.35)'
-    );
-
-    const slump = clamp(lt / 6);
-    drawStickman(W / 2, 425, 1.15, { mood: 'stressed', slump });
-
-    drawBillCard(260, 260, 'RENT DUE', '-$850', (lt - 0.5) / 0.6);
-    drawBillCard(1020, 260, 'ELECTRICITY', '-$210', (lt - 2.0) / 0.6);
-    drawBillCard(260, 410, 'GROCERIES', '-$190', (lt - 3.5) / 0.6);
-    drawBillCard(1020, 410, 'OVERDRAFT FEE', '-$150', (lt - 5.0) / 0.6);
-  }
-
-  // SCENE 3: THE HARVARD / PRINCETON STUDY (-13 IQ POINTS) (22 - 38s)
-  else if (t < 38) {
-    const lt = t - 22;
-    drawGlowText('THE SCARCITY STUDY', W / 2, 85, 48, '#ffffff');
-    drawGlowText('WORRYING ABOUT MONEY = -13 IQ POINTS', W / 2, 145, 30, '#ff4d4d', 'center', 'rgba(255,77,77,0.5)');
-
-    // Left stickman: Broke Brain (static overload)
-    drawStickman(360, 430, 1.05, { mood: 'stressed', slump: 0.5 });
-    drawGlowText('BROKE BRAIN', 360, 240, 26, '#ff6b6b');
-    // Animated red static rings around head
-    for (let i = 0; i < 3; i++) {
-      const r = 46 + ((lt * 35 + i * 18) % 45);
-      ctx.strokeStyle = `rgba(255, 65, 65, ${1 - (r - 46) / 45})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(365, 342, r, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-
-    // Divider
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-    ctx.beginPath(); ctx.moveTo(W/2, 200); ctx.lineTo(W/2, 560); ctx.stroke();
-
-    // Right stickman: Clear Bandwidth
-    drawStickman(920, 430, 1.05, { mood: 'happy', armRaise: 0.15 });
-    drawGlowText('CLEAR BANDWIDTH', 920, 240, 26, '#4ade80');
-    drawGlowText('100% FOCUS', 920, 280, 22, '#a7f3d0');
-  }
-
-  // SCENE 4: TUNNEL VISION EFFECT (38 - 56s)
-  else if (t < 56) {
-    const lt = t - 38;
-    const narrow = clamp(lt / 8);
-
-    // Opportunity door on the far right that gets blocked by tunnel walls
+    const camZoom = 1 + easeInOutSine(t / 10) * 0.06;
     ctx.save();
+    ctx.translate(W/2, H/2); ctx.scale(camZoom, camZoom); ctx.translate(-W/2, -H/2);
+
+    drawRoomEnvironment(t, { windowGlow: 'rgba(74, 222, 128, 0.16)', dayLabel: 'FRI' });
+    drawDust(t);
+
+    // Glowing phone balance notification above desk
+    const pop = easeOutCubic(t / 1.2);
+    ctx.save();
+    ctx.translate(880, 315 - pop * 18);
+    ctx.fillStyle = '#13221a';
     ctx.strokeStyle = '#4ade80';
-    ctx.shadowColor = 'rgba(74,222,128,0.6)';
-    ctx.shadowBlur = 20;
-    ctx.lineWidth = 4;
-    ctx.strokeRect(1040, 270, 120, 220);
-    drawGlowText('FUTURE', 1100, 235, 22, '#4ade80');
-    drawGlowText('+$50K/YR', 1100, 380, 20, '#4ade80');
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(-95, -34, 190, 68, 12); ctx.fill(); ctx.stroke();
+    drawTitle('+$1,400.00', 0, 2, 26, '#4ade80', 'rgba(74,222,128,0.5)');
     ctx.restore();
 
-    // Closing dark tunnel walls
-    const wallHeight = narrow * 175;
-    ctx.fillStyle = '#050507';
-    ctx.fillRect(0, 0, W, wallHeight);
-    ctx.fillRect(0, H - wallHeight, W, wallHeight);
-
-    drawGlowText('TUNNEL VISION', W / 2, 95 + wallHeight * 0.4, 52, '#ffffff');
-    drawStickman(420 + Math.sin(lt * 2) * 18, 420, 1.0, { mood: 'worried', slump: 0.4 });
-    drawBillCard(760, 390, 'SURVIVAL MODE', 'PAY TODAY', 1);
+    drawTitle('PAYDAY FRIDAY', W / 2, 74, 52, '#ffffff');
+    drawCharacter(530, 432, 1.0, t, { mood: 'happy', pose: 'reachUp', facing: 1 });
+    ctx.restore();
   }
 
-  // SCENE 5: THE POVERTY TAX (BOOTS MATH) (56 - 78s)
+  // SCENE 2: BILLS RAIN DOWN BEFORE MONDAY (10 - 22s)
+  else if (t < 22) {
+    const lt = t - 10;
+    const isMon = lt > 7.5;
+    drawRoomEnvironment(t, {
+      windowGlow: 'rgba(255, 77, 77, 0.14)',
+      redAlert: clamp(lt / 4),
+      dayLabel: isMon ? 'MON' : 'SUN'
+    });
+    drawDust(t);
+
+    drawTitle(
+      isMon ? 'MONDAY MORNING: $0.00' : '48 HOURS LATER...',
+      W / 2, 74, 48,
+      isMon ? '#ff4d4d' : '#ffffff',
+      isMon ? 'rgba(255,77,77,0.55)' : 'rgba(255,255,255,0.35)'
+    );
+
+    // Character reacts with hands on head as envelopes slam onto the desk & floor
+    drawCharacter(520, 432, 1.0, t, {
+      mood: 'stressed',
+      pose: lt > 2 ? 'handsOnHead' : 'idle',
+      facing: 1
+    });
+
+    drawFlyingEnvelope(790, 395, -0.08, 'RENT NOTICE', '-$850', (lt - 0.5) / 0.9);
+    drawFlyingEnvelope(940, 392,  0.06, 'POWER BILL',  '-$210', (lt - 2.2) / 0.9);
+    drawFlyingEnvelope(830, 355,  0.12, 'GROCERIES',   '-$190', (lt - 4.0) / 0.9);
+    drawFlyingEnvelope(920, 345, -0.14, 'BANK FEE',    '-$150', (lt - 5.8) / 0.9);
+  }
+
+  // SCENE 3: -13 IQ POINTS COGNITIVE BANDWIDTH TEST (22 - 38s)
+  else if (t < 38) {
+    const lt = t - 22;
+    const bg = ctx.createRadialGradient(W/2, H/2, 60, W/2, H/2, 740);
+    bg.addColorStop(0, '#191922'); bg.addColorStop(1, '#0a0a0e');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    drawDust(t);
+
+    // Floor line
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath(); ctx.moveTo(0, 565); ctx.lineTo(W, 565); ctx.stroke();
+
+    drawTitle('HARVARD & PRINCETON STUDY', W / 2, 66, 42, '#ffffff');
+    drawTitle('FINANCIAL STRESS = -13 IQ POINTS', W / 2, 118, 26, '#ff4d4d', 'rgba(255,77,77,0.5)');
+
+    // Left: Overloaded brain
+    drawCharacter(350, 436, 0.98, t, { mood: 'stressed', pose: 'handsOnHead', facing: 1 });
+    drawTitle('SCARCITY BRAIN', 350, 205, 24, '#ff6b6b');
+    for (let i = 0; i < 3; i++) {
+      const r = 42 + ((lt * 32 + i * 16) % 42);
+      ctx.strokeStyle = `rgba(255, 70, 70, ${1 - (r - 42) / 42})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(356, 358, r, 0, Math.PI * 2); ctx.stroke();
+    }
+
+    // Center divider
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.moveTo(W/2, 170); ctx.lineTo(W/2, 565); ctx.stroke();
+
+    // Right: Clear bandwidth
+    drawCharacter(930, 436, 0.98, t, { mood: 'happy', pose: 'pointRight', facing: -1 });
+    drawTitle('ABUNDANT BRAIN', 930, 205, 24, '#4ade80');
+    drawTitle('FULL MENTAL BANDWIDTH', 930, 245, 19, '#a7f3d0');
+  }
+
+  // SCENE 4: 3D PERSPECTIVE TUNNEL VISION (38 - 56s)
+  else if (t < 56) {
+    const lt = t - 38;
+    const narrow = clamp(lt / 7);
+
+    // 3D perspective corridor lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 2;
+    const vanishX = 960, vanishY = 360;
+    for (const [cx, cy] of [[0,0],[W,0],[0,H],[W,H],[0,360],[W,360]]) {
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(vanishX, vanishY); ctx.stroke();
+    }
+    // Depth rings moving toward viewer
+    for (let i = 0; i < 5; i++) {
+      const p = ((lt * 0.35 + i * 0.2) % 1);
+      const rw = lerp(180, 1280, p);
+      const rh = lerp(100, 720, p);
+      ctx.strokeStyle = `rgba(255,255,255,${0.04 + p * 0.12})`;
+      ctx.strokeRect(vanishX - rw/2, vanishY - rh/2, rw, rh);
+    }
+
+    // Glowing exit door on the far right
+    ctx.strokeStyle = '#4ade80';
+    ctx.shadowColor = 'rgba(74,222,128,0.6)';
+    ctx.shadowBlur = 22;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(1030, 260, 115, 210);
+    ctx.shadowBlur = 0;
+    drawTitle('EXIT', 1087, 232, 22, '#4ade80');
+
+    // Closing tunnel blinders
+    const wallH = narrow * 175;
+    ctx.fillStyle = '#050507';
+    ctx.fillRect(0, 0, W, wallH);
+    ctx.fillRect(0, H - wallH, W, wallH);
+
+    drawTitle('TUNNEL VISION', W / 2, 74 + wallH * 0.35, 48, '#ffffff');
+    drawCharacter(390, 420, 0.95, t, { mood: 'worried', pose: 'walk', facing: 1 });
+    drawFlyingEnvelope(740, 390, 0, 'PAY TODAY', 'URGENT', 1);
+  }
+
+  // SCENE 5: THE POVERTY TAX (BOOTS COMPARISON) (56 - 78s)
   else if (t < 78) {
     const lt = t - 56;
-    drawGlowText('THE POVERTY TAX (5 YEARS)', W / 2, 85, 48, '#ffffff');
+    const bg = ctx.createRadialGradient(W/2, H/2, 60, W/2, H/2, 740);
+    bg.addColorStop(0, '#191922'); bg.addColorStop(1, '#0a0a0e');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    drawDust(t);
 
-    // Left column: Cheap boots x 10
-    drawGlowText('CHEAP BOOTS ($30)', 350, 175, 30, '#ff6b6b');
-    const pairs = Math.min(10, Math.floor(lt * 0.7) + 1);
-    drawGlowText(`Replaced ${pairs}x = $${pairs * 30}`, 350, 230, 34, '#ffffff');
-    drawStickman(350, 435, 0.95, { mood: 'stressed', slump: 0.45 });
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.beginPath(); ctx.moveTo(0, 565); ctx.lineTo(W, 565); ctx.stroke();
 
-    // Right column: Quality boots x 1
-    drawGlowText('QUALITY BOOTS ($120)', 930, 175, 30, '#4ade80');
-    drawGlowText('Bought 1x = $120', 930, 230, 34, '#ffffff');
-    drawStickman(930, 435, 0.95, { mood: 'happy', armRaise: 0.2 });
+    drawTitle('THE POVERTY TAX (5 YEARS)', W / 2, 68, 44, '#ffffff');
 
-    if (lt > 12) {
-      drawGlowText('BEING BROKE COSTS $180 MORE', W / 2, 595, 32, '#facc15', 'center', 'rgba(250,204,21,0.45)');
+    const pairs = Math.min(10, Math.floor(lt * 0.65) + 1);
+    drawTitle('$30 BOOTS x 10 PAIRS', 350, 165, 26, '#ff6b6b');
+    drawTitle(`TOTAL SPENT: $${pairs * 30}`, 350, 212, 32, '#ffffff');
+    drawCharacter(350, 436, 0.95, t, { mood: 'stressed', pose: 'handsOnHead', facing: 1 });
+
+    drawTitle('$120 QUALITY BOOTS x 1', 930, 165, 26, '#4ade80');
+    drawTitle('TOTAL SPENT: $120', 930, 212, 32, '#ffffff');
+    drawCharacter(930, 436, 0.95, t, { mood: 'happy', pose: 'idle', facing: -1 });
+
+    if (lt > 11) {
+      drawTitle('BEING BROKE COSTS $180 MORE', W / 2, 605, 28, '#facc15', 'rgba(250,204,21,0.45)');
     }
   }
 
-  // SCENE 6: ESCAPING THE TRAP (78 - 100s)
+  // SCENE 6: CLIMBING OUT OF THE PIT (78 - 100s)
   else {
     const lt = t - 78;
     const climb = easeOutCubic(lt / 12);
 
-    // Pit walls
+    const bg = ctx.createRadialGradient(W/2, 120, 40, W/2, H/2, 760);
+    bg.addColorStop(0, '#232018'); bg.addColorStop(1, '#09090c');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    drawDust(t);
+
+    // Pit walls matching your thumbnail
     ctx.fillStyle = '#060608';
-    ctx.fillRect(0, 320, 440, 400);
-    ctx.fillRect(840, 320, 440, 400);
+    ctx.fillRect(0, 310, 440, 410);
+    ctx.fillRect(840, 310, 440, 410);
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(440, 310, 400, 420);
 
     // Golden light beam from above
-    const beam = ctx.createLinearGradient(W/2, 0, W/2, 550);
-    beam.addColorStop(0, 'rgba(250, 204, 21, 0.28)');
-    beam.addColorStop(1, 'rgba(250, 204, 21, 0)');
-    ctx.fillStyle = beam;
-    ctx.fillRect(440, 0, 400, 550);
-
-    drawGlowText('FREE YOUR BANDWIDTH', W / 2, 95, 54, '#ffffff');
-    drawGlowText('1. AUTOMATE   2. BUFFER   3. INVEST', W / 2, 160, 26, '#facc15', 'center', 'rgba(250,204,21,0.4)');
-
-    // Stickman rising out of the pit
-    drawStickman(W / 2, 470 - climb * 165, 1.05, {
-      mood: 'triumphant',
-      armRaise: 0.85,
-      glowColor: 'rgba(250, 204, 21, 0.75)'
-    });
-  }
-
-  // Active subtitle
-  const active = SCENES.find(s => t >= s.start && t < s.end) || SCENES[SCENES.length - 1];
-  drawCaption(active.caption);
-}
-
-function loop(ts) {
-  if (lastTs !== null && playing) {
-    elapsed += (ts - lastTs) / 1000;
-    if (elapsed >= TOTAL_DURATION) {
-      elapsed = TOTAL_DURATION;
-      playing = false;
-      document.getElementById('playBtn').textContent = 'Play';
-    }
-  }
-  lastTs = ts;
-
-  render(elapsed);
-
-  const curM = Math.floor(elapsed / 60);
-  const curS = String(Math.floor(elapsed % 60)).padStart(2, '0');
-  const totM = Math.floor(TOTAL_DURATION / 60);
-  const totS = String(TOTAL_DURATION % 60).padStart(2, '0');
-  document.getElementById('timer').textContent = `${curM}:${curS} / ${totM}:${totS}`;
-
-  requestAnimationFrame(loop);
-}
-
-document.getElementById('playBtn').onclick = () => {
-  if (elapsed >= TOTAL_DURATION) elapsed = 0;
-  playing = !playing;
-  document.getElementById('playBtn').textContent = playing ? 'Pause' : 'Play';
-};
-
-document.getElementById('restartBtn').onclick = () => {
-  elapsed = 0;
-  playing = true;
-  document.getElementById('playBtn').textContent = 'Pause';
-};
-
-document.getElementById('cleanBtn').onclick = () => {
-  document.getElementById('controls').classList.add('hidden');
-  elapsed = 0;
-  playing = true;
-  // Tap anywhere to bring controls back
-  setTimeout(() => {
-    window.addEventListener('click', () => {
-      document.getElementById('controls').classList.remove('hidden');
-    }, { once: true });
-  }, 400);
-};
-
-requestAnimationFrame(loop);
-</script>
-</body>
-  </html>
+    const beam = ctx.createLinearGradient(W/2, 0, W/2, 580);
+    beam.addColorStop(0, 'rgba(250, 204, 21, 0.32)');
+    beam.addColorStop(1, 'rgba(250, 2
   
